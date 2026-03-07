@@ -47,6 +47,80 @@ A comprehensive Terraform module for deploying Azure Virtual Networks with subne
     +-------------------+       +-------------------+
 ```
 
+### Component Diagram
+
+```mermaid
+flowchart TB
+    subgraph VNet["Azure Virtual Network"]
+        VNET["VNet\n(Address Spaces)"]
+        DDOS["DDoS Protection\nPlan"]
+    end
+
+    subgraph Subnets["Subnets"]
+        S1["Subnet 1\n(Delegation)"]
+        S2["Subnet 2\n(Service Endpoints)"]
+        SN["Subnet N\n(Custom Config)"]
+    end
+
+    subgraph NetworkSecurity["Network Security"]
+        NSG1["NSG\n(Per-Subnet Rules)"]
+        FL["NSG Flow Logs\n(Log Analytics)"]
+    end
+
+    subgraph Connectivity["Connectivity"]
+        NAT["NAT Gateway\n(Public IPs)"]
+        PEER["VNet Peering\n(Bidirectional)"]
+    end
+
+    subgraph DNS["Private DNS"]
+        PDZ["Private DNS Zones"]
+        VNL["VNet Links"]
+        PE["Private Endpoints"]
+    end
+
+    subgraph Routing["Route Tables"]
+        RT["Custom Route\nTables"]
+        SE["Service Endpoints\n(Microsoft.Storage, etc.)"]
+    end
+
+    VNET --> DDOS
+    VNET --> S1
+    VNET --> S2
+    VNET --> SN
+    S1 --> NSG1
+    S2 --> NSG1
+    SN --> NSG1
+    NSG1 --> FL
+    S1 --> NAT
+    S2 --> NAT
+    VNET --> PEER
+    PDZ --> VNL
+    VNL --> PE
+    S1 --> RT
+    S2 --> SE
+
+    style VNet fill:#0078D4,stroke:#0078D4,color:#fff
+    style Subnets fill:#FF9900,stroke:#FF9900,color:#fff
+    style NetworkSecurity fill:#DD344C,stroke:#DD344C,color:#fff
+    style Connectivity fill:#3F8624,stroke:#3F8624,color:#fff
+    style DNS fill:#8C4FFF,stroke:#8C4FFF,color:#fff
+    style Routing fill:#1A73E8,stroke:#1A73E8,color:#fff
+    style VNET fill:#0078D4,stroke:#005a9e,color:#fff
+    style DDOS fill:#0078D4,stroke:#005a9e,color:#fff
+    style S1 fill:#FF9900,stroke:#cc7a00,color:#fff
+    style S2 fill:#FF9900,stroke:#cc7a00,color:#fff
+    style SN fill:#FF9900,stroke:#cc7a00,color:#fff
+    style NSG1 fill:#DD344C,stroke:#b02a3d,color:#fff
+    style FL fill:#DD344C,stroke:#b02a3d,color:#fff
+    style NAT fill:#3F8624,stroke:#2d6119,color:#fff
+    style PEER fill:#3F8624,stroke:#2d6119,color:#fff
+    style PDZ fill:#8C4FFF,stroke:#6b3dcc,color:#fff
+    style VNL fill:#8C4FFF,stroke:#6b3dcc,color:#fff
+    style PE fill:#8C4FFF,stroke:#6b3dcc,color:#fff
+    style RT fill:#1A73E8,stroke:#1459b3,color:#fff
+    style SE fill:#1A73E8,stroke:#1459b3,color:#fff
+```
+
 ## Features
 
 - **Virtual Network** with multiple address spaces and custom DNS servers
