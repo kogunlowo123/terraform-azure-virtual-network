@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Architecture - terraform-azure-virtual-network</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0b0c0b;color:#f5f2eb;font-family:'Courier New',monospace;line-height:1.7}
+a{color:#c8420a;text-decoration:none}a:hover{text-decoration:underline}
+.container{max-width:1200px;margin:0 auto;padding:2rem}
+.badge{display:inline-block;background:#0078D4;color:#fff;padding:0.3rem 1rem;border-radius:4px;font-size:0.85rem;margin-bottom:1.5rem}
+h1{font-size:2.2rem;color:#c8420a;border-bottom:2px solid #c8420a;padding-bottom:0.5rem;margin-bottom:1.5rem}
+h2{font-size:1.5rem;color:#c8420a;margin:2rem 0 1rem;border-left:4px solid #c8420a;padding-left:0.75rem}
+h3{font-size:1.1rem;color:#f5f2eb;margin:1.2rem 0 0.5rem}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin:1rem 0}
+.card{background:#161816;border:1px solid #2a2d2a;border-radius:8px;padding:1.2rem;transition:border-color 0.2s}.card:hover{border-color:#c8420a}
+.card .num{font-size:2rem;color:#c8420a;font-weight:bold}
+.card .label{color:#a0a0a0;font-size:0.85rem}
+.card .value{color:#f5f2eb;font-size:1rem;margin-top:0.25rem}
+.arch-diagram{background:#161816;border:1px solid #2a2d2a;border-radius:8px;padding:2rem;margin:1rem 0;overflow-x:auto}
+.flow-row{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:0.5rem;margin:0.75rem 0}
+.flow-box{background:#1e201e;border:2px solid #c8420a;border-radius:6px;padding:0.6rem 1.2rem;text-align:center;min-width:140px;font-size:0.85rem}
+.flow-box.accent{background:#c8420a;color:#fff;border-color:#c8420a}
+.flow-box.blue{border-color:#0078D4;background:#0a1628}
+.flow-box.green{border-color:#27AE60;background:#0a1e12}
+.flow-box.yellow{border-color:#F39C12;background:#1e1a0a}
+.flow-box.red{border-color:#E74856;background:#1e0a0e}
+.flow-box.purple{border-color:#8C4FFF;background:#140a28}
+.flow-arrow{color:#c8420a;font-size:1.5rem}
+.flow-arrow-down{text-align:center;color:#c8420a;font-size:1.5rem;margin:0.25rem 0}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:0.85rem}
+th{background:#1a1c1a;color:#c8420a;text-align:left;padding:0.6rem;border:1px solid #2a2d2a}
+td{padding:0.6rem;border:1px solid #2a2d2a;color:#f5f2eb}
+tr:nth-child(even){background:#131513}
+code{background:#1a1c1a;padding:0.15rem 0.4rem;border-radius:3px;font-size:0.85rem;color:#c8420a}
+pre{background:#1a1c1a;padding:1rem;border-radius:6px;overflow-x:auto;margin:0.5rem 0;font-size:0.82rem;color:#f5f2eb;border:1px solid #2a2d2a}
+.checklist{list-style:none;padding:0}.checklist li{padding:0.4rem 0;border-bottom:1px solid #1a1c1a}
+.checklist li::before{content:"[ ] ";color:#c8420a;font-weight:bold}
+.section{margin-bottom:2.5rem}
+footer{border-top:1px solid #2a2d2a;padding-top:1.5rem;margin-top:3rem;color:#666;font-size:0.8rem;text-align:center}
+</style>
+</head>
+<body>
+<div class="container">
+
+<span class="badge">Microsoft Azure</span>
+<h1>terraform-azure-virtual-network</h1>
+
+<div class="section">
+<h2>Executive Summary</h2>
+<p>This Terraform module deploys a comprehensive Azure Virtual Network infrastructure with multiple address spaces, subnets with service endpoint and delegation support, per-subnet Network Security Groups with flexible rule definitions, NAT Gateway with configurable public IPs, DDoS Protection plan association, NSG flow logs with Log Analytics traffic analytics, Private DNS zones with multi-VNet linking, and custom DNS server configuration. The module serves as the foundational networking layer for Azure deployments with submodules for standalone subnets, private endpoints, and VNet peering.</p>
+</div>
+
+<div class="section">
+<h2>Overview</h2>
+<div class="card-grid">
+<div class="card"><div class="num">8</div><div class="label">Resource Types</div><div class="value">VNet, Subnets, NSGs, NAT GW, Flow Logs, DNS Zones, PIPs, DDoS</div></div>
+<div class="card"><div class="num">3</div><div class="label">Submodules</div><div class="value">Subnet, Private Endpoint, VNet Peering</div></div>
+<div class="card"><div class="num">NSG</div><div class="label">Security</div><div class="value">Per-subnet NSGs with flexible rules</div></div>
+<div class="card"><div class="num">14</div><div class="label">Input Variables</div><div class="value">Network configuration</div></div>
+<div class="card"><div class="num">12</div><div class="label">Outputs</div><div class="value">VNet, subnet, NSG, NAT, DNS IDs</div></div>
+<div class="card"><div class="num">DNS</div><div class="label">Private DNS</div><div class="value">Zones with multi-VNet linking</div></div>
+</div>
+</div>
+
+<div class="section">
+<h2>Architecture Diagram</h2>
+<div class="arch-diagram">
+<div class="flow-row">
+<div class="flow-box accent">Azure Virtual Network</div>
+<div class="flow-box">DDoS Protection Plan</div>
+</div>
+<div class="flow-arrow-down">&#9660;</div>
+<div class="flow-row">
+<div class="flow-box yellow">Subnet 1 (Delegation)</div>
+<div class="flow-box yellow">Subnet 2 (Service Endpoints)</div>
+<div class="flow-box yellow">Subnet N (Custom Config)</div>
+</div>
+<div class="flow-arrow-down">&#9660;</div>
+<div class="flow-row">
+<div class="flow-box red">NSG (Per-Subnet Rules)</div>
+<div class="flow-arrow">&#9654;</div>
+<div class="flow-box red">NSG Flow Logs</div>
+<div class="flow-arrow">&#9654;</div>
+<div class="flow-box">Traffic Analytics</div>
+</div>
+<div class="flow-arrow-down">&#9660;</div>
+<div class="flow-row">
+<div class="flow-box green">NAT Gateway</div>
+<div class="flow-arrow">&#9654;</div>
+<div class="flow-box green">Public IPs (1-N)</div>
+</div>
+<div class="flow-arrow-down">&#9660;</div>
+<div class="flow-row">
+<div class="flow-box purple">Private DNS Zones</div>
+<div class="flow-arrow">&#9654;</div>
+<div class="flow-box purple">VNet Links</div>
+<div class="flow-arrow">&#9654;</div>
+<div class="flow-box purple">Additional VNet Links</div>
+</div>
+<div class="flow-arrow-down">&#9660;</div>
+<div class="flow-row">
+<div class="flow-box blue">VNet Peering (Submodule)</div>
+<div class="flow-box blue">Private Endpoints (Submodule)</div>
+<div class="flow-box blue">Standalone Subnet (Submodule)</div>
+</div>
+</div>
+</div>
+
+<div class="section">
+<h2>Component Breakdown</h2>
+<h3>Virtual Network</h3>
+<p>Core network with multiple address spaces (CIDR blocks), custom DNS servers (falls back to Azure-provided DNS), and optional DDoS Protection Plan association. All resources are tagged with common tags.</p>
+<h3>Subnets</h3>
+<p>Map-based subnet configuration with address prefixes, optional service endpoints (e.g., Microsoft.Storage, Microsoft.Sql), and delegations for PaaS service integration (e.g., Microsoft.Web/serverFarms). Each subnet can have independent NSG rules.</p>
+<h3>Network Security Groups</h3>
+<p>Per-subnet NSGs with flexible rule definitions. Each rule supports priority, direction (Inbound/Outbound), access (Allow/Deny), protocol (Tcp/Udp/Icmp/*), port ranges, and address prefixes. NSGs are automatically associated with their subnets.</p>
+<h3>NAT Gateway</h3>
+<p>Optional NAT Gateway with configurable public IP count (1+), Standard SKU, and idle timeout. Automatically associated with all subnets for consistent outbound connectivity.</p>
+<h3>NSG Flow Logs</h3>
+<p>Optional flow logging per NSG with dedicated storage account (auto-created), version 2 format, 30-day retention, and traffic analytics integration with Log Analytics Workspace at 10-minute intervals.</p>
+<h3>Private DNS Zones</h3>
+<p>DNS zones for private endpoint resolution (e.g., privatelink.blob.core.windows.net). Auto-linked to the module's VNet plus optional additional VNets. Supports hub-and-spoke DNS architectures.</p>
+</div>
+
+<div class="section">
+<h2>Data Flow</h2>
+<ol style="padding-left:1.5rem">
+<li>Resources are deployed into subnets with designated address prefixes</li>
+<li>Inbound and outbound traffic is filtered by per-subnet NSG rules</li>
+<li>Service endpoints provide direct access to Azure PaaS services over the backbone</li>
+<li>Subnet delegations enable PaaS service injection (e.g., App Service, Container Instances)</li>
+<li>NAT Gateway provides consistent outbound IP for all subnets</li>
+<li>NSG flow logs capture traffic metadata and forward to Log Analytics for analytics</li>
+<li>Private DNS zones resolve private endpoint FQDNs to private IPs</li>
+<li>VNet links connect DNS zones to VNets for name resolution</li>
+<li>DDoS Protection Plan provides L3/L4 attack mitigation</li>
+</ol>
+</div>
+
+<div class="section">
+<h2>Security Controls</h2>
+<table>
+<tr><th>Control</th><th>Implementation</th></tr>
+<tr><td>Network Segmentation</td><td>Multiple subnets with independent address prefixes</td></tr>
+<tr><td>Traffic Filtering</td><td>Per-subnet NSGs with priority-based inbound/outbound rules</td></tr>
+<tr><td>DDoS Protection</td><td>Optional DDoS Protection Plan association</td></tr>
+<tr><td>Flow Logging</td><td>NSG flow logs v2 with 30-day retention</td></tr>
+<tr><td>Traffic Analytics</td><td>Log Analytics integration at 10-min intervals</td></tr>
+<tr><td>Private DNS</td><td>Private DNS zones for private endpoint resolution</td></tr>
+<tr><td>Outbound Control</td><td>NAT Gateway for predictable outbound IP addresses</td></tr>
+<tr><td>Service Endpoints</td><td>Secured access to PaaS services over Azure backbone</td></tr>
+<tr><td>Subnet Delegation</td><td>Controlled PaaS injection with service delegation</td></tr>
+</table>
+</div>
+
+<div class="section">
+<h2>Industry Adaptation</h2>
+<div class="card-grid">
+<div class="card"><h3>Hub-and-Spoke</h3><p>Deploy as hub VNet with private DNS zones linked to spoke VNets, NAT Gateway for shared outbound, centralized NSG flow logging, DDoS protection at hub level.</p></div>
+<div class="card"><h3>Microservices</h3><p>Dedicated subnets per tier (web/app/data), service endpoints for storage and SQL, delegated subnets for App Service and Container Instances, strict NSG rules between tiers.</p></div>
+<div class="card"><h3>Compliance</h3><p>DDoS protection enabled, NSG flow logs with traffic analytics, all subnets with deny-by-default NSG rules, private DNS for all PaaS endpoints, no public exposure.</p></div>
+<div class="card"><h3>Multi-Region</h3><p>VNet peering submodule for cross-region connectivity, DNS zones with multi-VNet linking, NAT Gateway per region for local outbound, consistent NSG rules across regions.</p></div>
+</div>
+</div>
+
+<div class="section">
+<h2>Production Readiness Checklist</h2>
+<ul class="checklist">
+<li>Plan IP address space to avoid overlaps with peered VNets</li>
+<li>Define subnet segmentation by application tier and security zone</li>
+<li>Configure NSG rules with deny-by-default approach</li>
+<li>Enable DDoS Protection for internet-facing workloads</li>
+<li>Deploy NAT Gateway for predictable outbound connectivity</li>
+<li>Enable NSG flow logs with traffic analytics</li>
+<li>Create private DNS zones for all required private endpoints</li>
+<li>Configure service endpoints for PaaS service access</li>
+<li>Use subnet delegations for PaaS service injection</li>
+<li>Set up custom DNS servers if using hybrid connectivity</li>
+<li>Plan for VNet peering with hub-and-spoke topology</li>
+<li>Apply resource tags for governance and cost tracking</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>Configuration Reference</h2>
+<h3>Required Variables</h3>
+<table>
+<tr><th>Variable</th><th>Type</th><th>Description</th></tr>
+<tr><td><code>name</code></td><td>string</td><td>Virtual network name</td></tr>
+<tr><td><code>resource_group_name</code></td><td>string</td><td>Target resource group</td></tr>
+<tr><td><code>location</code></td><td>string</td><td>Azure region</td></tr>
+<tr><td><code>address_spaces</code></td><td>list(string)</td><td>CIDR blocks for the VNet</td></tr>
+</table>
+<h3>Key Optional Variables</h3>
+<table>
+<tr><th>Variable</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr><td><code>dns_servers</code></td><td>list(string)</td><td>[]</td><td>Custom DNS server IPs</td></tr>
+<tr><td><code>subnets</code></td><td>map(object)</td><td>{}</td><td>Subnet configurations</td></tr>
+<tr><td><code>enable_nat_gateway</code></td><td>bool</td><td>false</td><td>Create NAT Gateway</td></tr>
+<tr><td><code>nat_gateway_public_ip_count</code></td><td>number</td><td>1</td><td>NAT Gateway PIPs</td></tr>
+<tr><td><code>enable_ddos_protection</code></td><td>bool</td><td>false</td><td>Enable DDoS protection</td></tr>
+<tr><td><code>enable_flow_logs</code></td><td>bool</td><td>false</td><td>Enable NSG flow logs</td></tr>
+<tr><td><code>private_dns_zones</code></td><td>list(object)</td><td>[]</td><td>Private DNS zone configs</td></tr>
+<tr><td><code>tags</code></td><td>map(string)</td><td>{}</td><td>Resource tags</td></tr>
+</table>
+<h3>Key Outputs</h3>
+<table>
+<tr><th>Output</th><th>Description</th></tr>
+<tr><td><code>vnet_id</code></td><td>Virtual network ID</td></tr>
+<tr><td><code>vnet_name</code></td><td>Virtual network name</td></tr>
+<tr><td><code>vnet_address_space</code></td><td>VNet address space</td></tr>
+<tr><td><code>subnet_ids</code></td><td>Map of subnet names to IDs</td></tr>
+<tr><td><code>nsg_ids</code></td><td>Map of subnet names to NSG IDs</td></tr>
+<tr><td><code>nat_gateway_id</code></td><td>NAT Gateway ID</td></tr>
+<tr><td><code>nat_gateway_public_ips</code></td><td>NAT Gateway public IPs</td></tr>
+<tr><td><code>private_dns_zone_ids</code></td><td>Map of DNS zone names to IDs</td></tr>
+</table>
+</div>
+
+<div class="section">
+<h2>Deployment</h2>
+<pre>
+# Initialize Terraform
+terraform init
+
+# Preview changes
+terraform plan -out=tfplan
+
+# Apply configuration
+terraform apply tfplan
+</pre>
+<h3>Prerequisites</h3>
+<ul style="padding-left:1.5rem;margin-top:0.5rem">
+<li>Terraform >= 1.5.0</li>
+<li>AzureRM provider >= 3.80.0</li>
+<li>Existing Azure Resource Group</li>
+<li>For flow logs: Network Watcher in the same region</li>
+<li>For DDoS: existing DDoS Protection Plan</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>Links</h2>
+<ul style="padding-left:1.5rem">
+<li><a href="https://learn.microsoft.com/en-us/azure/virtual-network/virtual-networks-overview">Azure Virtual Network Overview</a></li>
+<li><a href="https://learn.microsoft.com/en-us/azure/nat-gateway/nat-overview">Azure NAT Gateway</a></li>
+<li><a href="https://learn.microsoft.com/en-us/azure/ddos-protection/ddos-protection-overview">Azure DDoS Protection</a></li>
+<li><a href="https://learn.microsoft.com/en-us/azure/network-watcher/nsg-flow-logs-overview">NSG Flow Logs</a></li>
+<li><a href="https://learn.microsoft.com/en-us/azure/dns/private-dns-overview">Azure Private DNS Zones</a></li>
+<li><a href="https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/virtual_network">Terraform azurerm_virtual_network</a></li>
+</ul>
+</div>
+
+<footer>
+<p>terraform-azure-virtual-network &middot; Architecture Documentation &middot; Generated 2026-03-15</p>
+<p>Terraform Module for Microsoft Azure</p>
+</footer>
+
+</div>
+</body>
+</html>
