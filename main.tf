@@ -1,14 +1,10 @@
-###############################################################################
-# Virtual Network
-###############################################################################
-
 resource "azurerm_virtual_network" "this" {
   name                = var.name
   location            = var.location
   resource_group_name = var.resource_group_name
   address_space       = var.address_spaces
   dns_servers         = length(var.dns_servers) > 0 ? var.dns_servers : null
-  tags                = local.common_tags
+  tags                = var.tags
 
   dynamic "ddos_protection_plan" {
     for_each = var.enable_ddos_protection && var.ddos_protection_plan_id != null ? [1] : []
@@ -18,10 +14,6 @@ resource "azurerm_virtual_network" "this" {
     }
   }
 }
-
-###############################################################################
-# Subnets
-###############################################################################
 
 resource "azurerm_subnet" "this" {
   for_each = var.subnets
@@ -45,21 +37,35 @@ resource "azurerm_subnet" "this" {
   }
 }
 
-###############################################################################
-# Network Security Groups
-###############################################################################
-
 resource "azurerm_network_security_group" "this" {
-  for_each = local.subnets_with_nsg
+  for_each = { for key, subnet in var.subnets : key => subnet if length(subnet.nsg_rules) > 0 }
 
   name                = "${each.key}-nsg"
   location            = var.location
   resource_group_name = var.resource_group_name
-  tags                = local.common_tags
+  tags                = var.tags
 }
 
 resource "azurerm_network_security_rule" "this" {
-  for_each = local.nsg_rules_map
+  for_each = {
+    for rule in flatten([
+      for subnet_key, subnet in var.subnets : [
+        for rule in subnet.nsg_rules : {
+          key                        = "${subnet_key}.${rule.name}"
+          subnet_key                 = subnet_key
+          name                       = rule.name
+          priority                   = rule.priority
+          direction                  = rule.direction
+          access                     = rule.access
+          protocol                   = rule.protocol
+          source_port_range          = rule.source_port_range
+          destination_port_range     = rule.destination_port_range
+          source_address_prefix      = rule.source_address_prefix
+          destination_address_prefix = rule.destination_address_prefix
+        }
+      ]
+    ]) : rule.key => rule
+  }
 
   name                        = each.value.name
   priority                    = each.value.priority
@@ -75,15 +81,11 @@ resource "azurerm_network_security_rule" "this" {
 }
 
 resource "azurerm_subnet_network_security_group_association" "this" {
-  for_each = local.subnets_with_nsg
+  for_each = { for key, subnet in var.subnets : key => subnet if length(subnet.nsg_rules) > 0 }
 
   subnet_id                 = azurerm_subnet.this[each.key].id
   network_security_group_id = azurerm_network_security_group.this[each.key].id
 }
-
-###############################################################################
-# NAT Gateway
-###############################################################################
 
 resource "azurerm_public_ip" "nat" {
   count = var.enable_nat_gateway ? var.nat_gateway_public_ip_count : 0
@@ -93,7 +95,7 @@ resource "azurerm_public_ip" "nat" {
   resource_group_name = var.resource_group_name
   allocation_method   = "Static"
   sku                 = "Standard"
-  tags                = local.common_tags
+  tags                = var.tags
 }
 
 resource "azurerm_nat_gateway" "this" {
@@ -104,7 +106,7 @@ resource "azurerm_nat_gateway" "this" {
   resource_group_name     = var.resource_group_name
   sku_name                = "Standard"
   idle_timeout_in_minutes = var.nat_gateway_idle_timeout
-  tags                    = local.common_tags
+  tags                    = var.tags
 }
 
 resource "azurerm_nat_gateway_public_ip_association" "this" {
@@ -121,10 +123,6 @@ resource "azurerm_subnet_nat_gateway_association" "this" {
   nat_gateway_id = azurerm_nat_gateway.this[0].id
 }
 
-###############################################################################
-# NSG Flow Logs
-###############################################################################
-
 resource "azurerm_storage_account" "flow_logs" {
   count = var.enable_flow_logs ? 1 : 0
 
@@ -133,11 +131,11 @@ resource "azurerm_storage_account" "flow_logs" {
   resource_group_name      = var.resource_group_name
   account_tier             = "Standard"
   account_replication_type = "LRS"
-  tags                     = local.common_tags
+  tags                     = var.tags
 }
 
 resource "azurerm_network_watcher_flow_log" "this" {
-  for_each = var.enable_flow_logs ? local.subnets_with_nsg : {}
+  for_each = var.enable_flow_logs ? { for key, subnet in var.subnets : key => subnet if length(subnet.nsg_rules) > 0 } : {}
 
   network_watcher_name = data.azurerm_network_watcher.this[0].name
   resource_group_name  = var.resource_group_name
@@ -165,38 +163,42 @@ resource "azurerm_network_watcher_flow_log" "this" {
   }
 }
 
-###############################################################################
-# Private DNS Zones
-###############################################################################
-
 resource "azurerm_private_dns_zone" "this" {
-  for_each = local.private_dns_zone_map
+  for_each = { for zone in var.private_dns_zones : zone.name => zone }
 
   name                = each.value.name
   resource_group_name = var.resource_group_name
-  tags                = local.common_tags
+  tags                = var.tags
 }
 
-# Link each private DNS zone to the module's own VNet
 resource "azurerm_private_dns_zone_virtual_network_link" "this" {
-  for_each = local.private_dns_zone_map
+  for_each = { for zone in var.private_dns_zones : zone.name => zone }
 
   name                  = "${var.name}-${replace(each.value.name, ".", "-")}"
   resource_group_name   = var.resource_group_name
   private_dns_zone_name = azurerm_private_dns_zone.this[each.key].name
   virtual_network_id    = azurerm_virtual_network.this.id
   registration_enabled  = false
-  tags                  = local.common_tags
+  tags                  = var.tags
 }
 
-# Link each private DNS zone to additional VNets
 resource "azurerm_private_dns_zone_virtual_network_link" "additional" {
-  for_each = local.dns_zone_vnet_links_map
+  for_each = {
+    for link in flatten([
+      for zone in var.private_dns_zones : [
+        for vnet_id in zone.linked_vnets : {
+          key       = "${zone.name}.${md5(vnet_id)}"
+          zone_name = zone.name
+          vnet_id   = vnet_id
+        }
+      ]
+    ]) : link.key => link
+  }
 
-  name                  = "link-${each.value.link_key}"
+  name                  = "link-${each.key}"
   resource_group_name   = var.resource_group_name
   private_dns_zone_name = azurerm_private_dns_zone.this[each.value.zone_name].name
   virtual_network_id    = each.value.vnet_id
   registration_enabled  = false
-  tags                  = local.common_tags
+  tags                  = var.tags
 }
