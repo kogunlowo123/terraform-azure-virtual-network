@@ -1,3 +1,9 @@
+![Terraform](https://img.shields.io/badge/Terraform-%3E%3D1.5-blueviolet?logo=terraform)
+![Azure](https://img.shields.io/badge/Azure-0078D4?logo=microsoftazure&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
+![CI](https://img.shields.io/github/actions/workflow/status/kogunlowo123/terraform-azure-virtual-network/terraform-ci.yml?label=CI)
+![GitHub release](https://img.shields.io/github/v/release/kogunlowo123/terraform-azure-virtual-network)
+
 # Terraform Azure Virtual Network Module
 
 A comprehensive Terraform module for deploying Azure Virtual Networks with subnet delegation, service endpoints, NAT Gateway, DDoS Protection, Network Security Groups, NSG flow logs, and Private DNS Zones.
